@@ -1,29 +1,64 @@
 #include <msp430g2553.h>
 #include <stdint.h>
+#define MAXELEMENT 16
 #define TX BIT2
 #define RX BIT1
 #define TXLED BIT0
 #define RXLED BIT6
+#define PING 0x69
+#define TERM 0x01
 #define POLYNOMIAL 0xd8
 #define BYTE 8
 #define WIDTH (BYTE * sizeof(uint16_t))
 #define TOPBIT (1 << (WIDTH-1))
-#define LIMIT 128
+#define LIMIT 64
+#define TRUE 1
+#define FALSE 0
 
 
-char myAddress[4];
-volatile char *paddress=NULL;
+char myAddress='A';
 
-typedef struct FIFO
+char incomingdata[MAXELEMENT];
+int i=0,LOOP=TRUE;
+
+typedef enum PacketState
 {
-  char data;
-  struct FIFO *next;
-} List;
+    /*! Default condition*/
+    EmptyState,
 
+    /*! min. one 0x55 received*/
+    moto55,
 
+    /*! after 0xFF, 0x01 received*/
+    moto1,
+
+    /*! Address */
+    address,
+
+    /*! Command*/
+    command,
+
+    /*! Low byte of datalength*/
+    DLenLow,
+
+    /*! High byte of datalength*/
+    DLenHigh,
+
+    /*! Databyte */
+    Data,
+
+    /*! low byte of crc  Packet*/
+    CrcLow,
+
+    /*! high byte of crc  Packet*/
+    CrcHigh
+
+} packetState;
 
 void setup() {
   // put your setup code here, to run once:
+
+   
    serialInit();
     
 }
@@ -40,96 +75,111 @@ void loop() {
 #pragma vector=USCIAB0RX_VECTOR
 __interrupt void USCI0RX_ISR(void)
 {
-  P1OUT |= BIT0;
+  P1OUT |= BIT6;
   //__bic_SR_register_on_exit (LPM3_bits);
-  
-  P1OUT &= ~BIT0;
+  incomingdata[i]=UCA0RXBUF;
+  incomingdata[i++]='\0';
+  P1OUT &= ~BIT6;
   
 }
 
-void reading(List *actual)
+int reading(char *pdata)
 {
     /*QueueData *receivingData=NULL,
                *toQueueuPacket=NULL;*/
-    unsigned char data;
-    int i=0;
-    int dataIndex;
-    Crc packetCrc,calculateCrc;
-    calculateCrc=packetCrc=0;
+    if(!pdata)
+      return;
+    
+    char cmd=0;
+    char *reqData=NULL;
+    unsigned int i=0;
+    unsigned int dataIndex;
+    unsigned int len=0,crc;
+    unsigned int dataIndex;
+    calculateCrc=crc=0;
     packetState State=EmptyState;
 
-    while(actual->next)
+    while(LOOP)
         {
             switch (State)
                 {
                 case EmptyState:
-                    if (data == 0x55)
+                    if (pdata[i]== 0x55)
                         {
                             State= moto55;
-                            i=0;
+                            i++;
                         }
                     continue;
                 case moto55:
-                    if (data == 0x55)
+                    if (pdata[i]== 0x55)
                         {
-                            i++;
+                          
                             if(i==5)
                                 break;
-                                
+                            i++;
                             continue;
                         }
-                    if (data== FF)
+                    if (pdata[i]== FF)
                         {
                             State=moto1;
+                            i++;
                             continue;
                         }
                     else
                         break;
 
                 case moto1:
-                    if(data==1)
+                    if(pdata[i]==1)
                         {
                             calculateCrc=0;
                             State= address;
+                            i++;
                             continue;
                         }
                     else
                         break;
                 case address:
-                    if (!receivingData)
-                        {
-                            calculateCrc = addCRC(calculateCrc, data);
-                            receivingData=reserve(data);
-                            if (!receivingData)
-                                    break;
-                            State = command;
-                            continue;
-                        }
+                    if(pdata[i]=='A')
+                    {
+                      calculateCrc = addCRC(calculateCrc, pdata[i]);
+                      State = command;
+                      i++;
+                      continue;
+                    }
                     else
-                        break;
-
+                    {
+                      memset(pdata,'\0',MAXELEMENT);
+                      State=EmptyState;
+                      LOOP=FALSE;
+                      break;
+                    }
+                        
                 case command :
-                    calculateCrc = addCRC(calculateCrc,data);
-                    receivingData->cmd = data;
+                    calculateCrc = addCRC(calculateCrc,pdata[i]);
+                    cmd=pdata[i];
                     State = DLenLow;
+                    i++;
                     continue;
                 case DLenLow :
-                    calculateCrc = addCRC(calculateCrc, data);
-                    receivingData->dlen = (data & 0xff);
+                    calculateCrc = addCRC(calculateCrc, pdata[i]);
+                    *plen=pdata[i] & 0xFF;
                     State = DLenHigh;
+                    i++;
                     continue;
                 case DLenHigh :
-                    calculateCrc = addCRC(calculateCrc, data);
-                    receivingData->dlen |= (data& 0xff) << BYTE ;
+                    calculateCrc = addCRC(calculateCrc, pdata[i]);
+                    *plen |= (pdata[i]& 0xff) << BYTE ;
+                    i++;
                     dataIndex=0;
-                    if (receivingData->dlen > 0)
+                    if (*plen> 0)
                         {
-                            if (receivingData->dlen <= LIMIT)
+                            if (*plen <= LIMIT)
                                 {
-                                    receivingData->data =(char*)malloc((receivingData->dlen)*sizeof(char));
-                                    if(!receivingData->data)
+                                    reqData =(char*)malloc((*plen)*sizeof(char));
+                                    if(!reqData)
                                             break;
                                     State = Data;
+                                    i++;
                                     continue;
                                 }
                             else
@@ -138,71 +188,113 @@ void reading(List *actual)
                     else
                         {
                             State =  CrcLow;
+                            i++;
                             continue;
                         }
                 case Data :
-                    calculateCrc = addCRC(calculateCrc, data);
-                    *((receivingData->data)+dataIndex) = data;
-                    if(++dataIndex>=receivingData->dlen)
+                    calculateCrc = addCRC(calculateCrc, pdata[i]);
+                    *((reqData)+dataIndex) = data;
+                    if(++dataIndex>=*plen)
+                      {
                         State = CrcLow;
+                        i++;
+                      }
                     else
-                        State = Data;
-                    continue;
+                      {
+                        State = Data
+                        i++;
+                      }
+                      continue;
                 case CrcLow :
-                    packetCrc = (data & 0xff);
+                    crc = (pdata[i] & 0xff);
                     State = CrcHigh;
+                    i++;
                     continue;
                 case CrcHigh:
-                    packetCrc |= ( data & 0xff)<< BYTE;
-                    if (compareCRC(packetCrc, calculateCrc))
+                    crc |= ( pdata[i] & 0xff)<< BYTE;
+                    if (compareCRC(crc, calculateCrc))
                         {
-                            if(receivingData->cmd==1 && receivingData->data)           //cmdTerm =1, not polling
+                            if(cmd==TERM && *reqData)           //cmdTerm =1, not polling
                                 {
-                                    toQueueuPacket=receivingData;
-                                    receivingData=NULL;
+                                   free(reqData);
+                                    return 1;
                                 }
-                            else if (receivingData->cmd==PING)
-                                {
-
-                                }
-                            else
-                                syslog(LOG_ERR,"ERROR Packet");
+                            else if (cmd==PING)
+                               return 2;
+                           
                         }
+                    if(reqData)
+                      free(reqData);
+                    LOOP=FALSE;
                     break;
                 }
-            State=EmptyState;
-            if(receivingData)
+            
+            if(reqData)
+                free(reqData);
+        }
+}
+void sending(unsigned char address, unsigned char cmd,char *data, uint16_t dLen)
+{
+    if ( !data || fd <0 || dLen <0 )
+            {
+              P1OUT |= BIT0 + BIT6;
+              return;
+              }
+            
+    char *buff=(char*)malloc((dLen+13)*sizeof(char));
+    if(!buff)
+    {
+      P1OUT |= BIT0 + BIT6;
+      return;
+    }
+    
+    int i=0;
+    int dataElement=11;
+    unsigned int crc=0;
+    unsigned char len1,len2,crc1,crc2;
+    crc = addCRC(crc, address);
+    crc = addCRC(crc, cmd);
+    len1= dLen & 0xff;
+    crc = addCRC(crc,len1);
+    len2 = (dLen >> BYTE) & 0xff;
+    crc = addCRC(crc, len2);
+    if(dLen>0)
+        {
+            int j;
+            for (j=0; j<dLen; j++,data++)
                 {
-                    if(receivingData->data)
-                        free(receivingData->data);
-                    free(receivingData);
-                    receivingData=NULL;
+                    buff[dataElement]=*data;
+                    crc = addCRC(crc, *data);
+                    dataElement++;
                 }
         }
-    if(receivingData)
+    crc1=crc & 0xff;
+    crc2=(crc>>BYTE) & 0xff;
+    while(i!=5)
         {
-            if(receivingData->data)
-                free(receivingData->data);
-            free(receivingData);
-            receivingData=NULL;
+            buff[i]=0x55;
+            i++;
         }
+    buff[5]=0xFF;
+    buff[6]=0x01;
+    buff[7]=address;
+    buff[8]=cmd;
+    buff[9]=len1;
+    buff[10]=len2;
+    buff[dataElement]=crc1;
+    dataElement++;
+    buff[dataElement]=crc2;
+    //dataElement++;??
+    i=0;
+    while(i<dataElement)
+    {
+      P1OUT |=BIT0;
+      UCA0TXBUF=buff[i];
+      i++;
+      P1OUT &= ~BIT0;
+    }
+    free(buff);
 }
-
-QueueData *reserve(char data)
-{
-    QueueData *temp;
-    temp=(QueueData *)malloc(sizeof(QueueData));
-    if (!temp)
-        return NULL;
-    temp->address=data;
-    temp->cmd=0;
-    temp->dlen = 0;
-    temp->data = NULL;
-    return temp;
-}
-
-
-
 void serialInit()
 {
   //WDTCTL=WDTPW + WDTHOLD;   //Watchdog STOP
@@ -229,14 +321,7 @@ void serialInit()
     UCA0MCTL=UCBRS0+UCA0BR1 ;
     UCA0CTL1 &= ~UCSWRST;
     IE2 |= UCA0RXIE;    //UC0IE
-    List *elso=(List*)malloc(sizeof(List));
-    if(!elso)
-      {
 
-        
-      }
-    else
-        elso->next=NULL;
     __bis_SR_register(LPM3_bits + GIE);
        
 }
@@ -257,18 +342,4 @@ int compareCRC(uint16_t crc1, uint16_t crc2)
     return crc1==crc2 ? 1:0;
 }
 
-void addToList(List *actual,char data)
-{
- List *uj=NULL;
- uj=(List*)malloc(sizeof(List));
- if(!uj)
-  //vmi
-  else
-  {
-    actual->next=uj;
-    uj->data=data;
-    uj->next=NULL;    
-  }
- 
-}
 
