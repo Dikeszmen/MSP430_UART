@@ -10,3 +10,5 @@ int addCRC(int packetCrc, unsigned char countedCrc);
 int compareCRC(int crc1, int crc2);
 
 #endif
+
+

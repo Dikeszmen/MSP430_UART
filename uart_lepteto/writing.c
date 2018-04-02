@@ -1,6 +1,10 @@
-void sending(unsigned char address, unsigned char cmd,char *data, uint16_t dLen)
+#include <msp430g2553.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include "crc.h"
+void sending(unsigned char address, unsigned char cmd,char *data, int  dLen)
 {
-    if ( !data || dLen <0 )
+    if ( !data || dLen <=0 )
             {
               P1OUT |= BIT0 + BIT6;
               return;
@@ -65,4 +69,5 @@ void sending(unsigned char address, unsigned char cmd,char *data, uint16_t dLen)
     }
     free(buff);
 }
+
 

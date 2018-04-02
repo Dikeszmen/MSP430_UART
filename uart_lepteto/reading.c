@@ -1,20 +1,30 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include "reading.h"
 #include "init_uart.h"
+#include "crc.h"
+#include <msp430g2553.h>
 #define PING 0x69
 #define TERM 0x01
+#define LIMIT 2
+#define TRUE 1
+#define FALSE 0
 
-int reading(List *act)
-{
+
+int reading(LIST *act,unsigned char myAddress){
     if(!act)
       return -1;
+
     LIST *temp;
     int i=0;
     char cmd=0;
     char *reqData=NULL;
     unsigned int dataIndex;
-    unsigned int len=0,crc;
+    unsigned int len=0,crc,calculateCrc;
     calculateCrc=crc=0;
+    int LOOP=TRUE;
     packetState State=EmptyState;
-
+    char P1OUT;
     while(LOOP)
         {
             switch (State)
@@ -28,12 +38,12 @@ int reading(List *act)
                     temp=act;
                     act=temp->next;
                     free(temp);
-                    
+
                     continue;
                 case moto55:
                     if (act->data== 0x55)
                         {
-                          
+
                             if(i==5)
                             {
                                 temp=act;
@@ -46,7 +56,7 @@ int reading(List *act)
                             free(temp);
                             continue;
                         }
-                    if (act->data== FF)
+                    if (act->data== 0xFF)
                         {
                             State=moto1;
                             temp=act;
@@ -55,16 +65,15 @@ int reading(List *act)
                             continue;
                         }
                     else
-                    {
-                          temp=act;
-                          act=temp->next;
-                          free(temp);
-                          break;
-                    }
-                        
+                        {
+                            temp=act;
+                            act=temp->next;
+                            free(temp);
+                            break;
+                        }
 
                 case moto1:
-                    if(act->data==1)
+                    if(act->data==0x01)
                         {
                             calculateCrc=0;
                             State= address;
@@ -93,13 +102,16 @@ int reading(List *act)
                     else
                     {
                       State=EmptyState;
-                      LOOP=FALSE;   //??
+                      LOOP=FALSE;
+                      while(act->next)
+                      {
                       temp=act;
                       act=temp->next;
                       free(temp);
+                      }
                       break;
                     }
-                        
+
                 case command :
                     calculateCrc = addCRC(calculateCrc,act->data);
                     cmd=act->data;
@@ -108,7 +120,7 @@ int reading(List *act)
                     act=temp->next;
                     free(temp);
                     continue;
-                
+
                 case DLenLow :
                     calculateCrc = addCRC(calculateCrc, act->data);
                     len=act->data & 0xFF;
@@ -117,13 +129,13 @@ int reading(List *act)
                     act=temp->next;
                     free(temp);
                     continue;
-                    
+
                 case DLenHigh :
                     calculateCrc = addCRC(calculateCrc, act->data);
                     len |= (act->data& 0xff) << BYTE ;
-                    temp=act;
+                    /*temp=act;
                     act=temp->next;
-                    free(temp);
+                    free(temp);*/
                     dataIndex=0;
                     if (len> 0)
                         {
@@ -131,7 +143,17 @@ int reading(List *act)
                                 {
                                     reqData =(char*)malloc((len)*sizeof(char));
                                     if(!reqData)
+                                      {
+                                        while(act->next)
+                                       {
+                                          P1OUT &= 0x00;
+                                          temp=act;
+                                          act=temp->next;
+                                          free(temp);
+                                          P1OUT = BIT0+BIT6;
+                                       }
                                             break;
+                                      }
                                     State = Data;
                                     temp=act;
                                     act=temp->next;
@@ -140,12 +162,16 @@ int reading(List *act)
                                 }
                             else
                             {
-                                temp=act;
-                                act=temp->next;
-                                free(temp);
+                              LOOP=FALSE;
+                              while(act->next)
+                                {
+                                  temp=act;
+                                  act=temp->next;
+                                  free(temp);
+                                }
                                 break;
                             }
-                                    
+
                         }
                     else
                         {
@@ -157,16 +183,16 @@ int reading(List *act)
                         }
                 case Data :
                     calculateCrc = addCRC(calculateCrc, act->data);
-                    *((reqData)+dataIndex) = data;
+                    *((reqData)+dataIndex) = act->data;
                     if(++dataIndex>=len)
                         State = CrcLow;
                     else
-                        State = Data
+                        State = Data;
                      temp=act;
                      act=temp->next;
-                     free(temp);  
+                     free(temp);
                      continue;
-                        
+
                 case CrcLow :
                     crc = (act->data & 0xff);
                     State = CrcHigh;
@@ -174,26 +200,46 @@ int reading(List *act)
                     act=temp->next;
                     free(temp);
                     continue;
-                    
+
                 case CrcHigh:
                     crc |= ( act->data & 0xff)<< BYTE;
                     if (compareCRC(crc, calculateCrc))
                         {
                             if(cmd==TERM && *reqData)           //cmdTerm =1, not polling
                                 {
+                                  while(act->next)
+                                    {
+                                      temp=act;
+                                      act=temp->next;
+                                      free(temp);
+                                    }
                                    free(reqData);
                                     return 1;
                                 }
                             else if (cmd==PING)
-                               return 2;
-                           
+                               {
+                                while(act->next)
+                                {
+                                  temp=act;
+                                  act=temp->next;
+                                  free(temp);
+                                }
+                                return 2;
+                               }
+
                         }
                     if(reqData)
-                      free(reqData);
-                    //LOOP=FALSE;
-                    break;
+                      {
+                        free(reqData);
+                        LOOP=FALSE;
+                        break;
+                      }
+
                 }
-            
+
         }
+        return 0;
 }
+
+
 

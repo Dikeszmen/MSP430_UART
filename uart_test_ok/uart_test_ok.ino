@@ -1,11 +1,14 @@
 #include <msp430g2553.h>
+#include <stdio.h>
+#include <stdlib.h>
 #define TX BIT2
 #define RX BIT1
 #define TXLED BIT0
 #define RXLED BIT6
 #define LIMIT 128
 char myAddress='A';
-unsigned int i;
+unsigned int i=0;
+char tomb;
 typedef enum PacketState
 {
     /*! Default condition*/
@@ -60,7 +63,7 @@ void setup() {
     DCOCTL=CALDCO_1MHZ;
     
     /****************************/
-        
+    
     P1DIR |= RXLED+TXLED;  
     P1OUT &= 0x00;
     P2DIR |= 0xFF;  
@@ -76,7 +79,8 @@ void setup() {
     UCA0BR1 = 0x00;
     UCA0MCTL=UCBRS0+UCA0BR1 ;
     UCA0CTL1 &= ~UCSWRST;
-    //IE2 |= UCA0RXIE;    //UC0IE
+    IE2 |= UCA0RXIE;    //UC0IE
+    tomb='c';
     //__bis_SR_register(CPUOFF + GIE);
     
     //Revolt Kft. Bank: 10700457-43660009-51100005, Közlemény rovatba: Rendelésszám
@@ -84,29 +88,21 @@ void setup() {
 
 void loop() {
  // put your main code here, to run repeatedly: 
-  if(UCA0RXBUF==0x55)
-    P1OUT |= BIT0;    
-  else 
-    P1OUT &= 0x00;  
-
-
-      
+   
+    if(tomb!='c')
+      Serial.println(tomb);
 }
-/*#pragma vector=USCI0RX_VECTOR 
+#pragma vector=USCI0RX_VECTOR 
 __interrupt void USCI0RX_ISR(void)
 {
- P1OUT |= BIT0; 
-   /* if (UCA0RXBUF == 0x55) // 0x55 received?
-    { 
+ /*P1OUT |= BIT0; 
+    if (i == 5) // 0x55 received?
        i = 0; 
-     //  UC0IE |= UCA0TXIE; // Enable USCI_A0 TX interrupt 
-     //P1OUT 
-     
-       Serial.println(UCA0RXBUF);
-      //UCA0TXBUF = myAddress; 
-    } 
-    //P1OUT &= ~RXLED;  
-}
+    */
+    tomb=UCA0RXBUF;
+   
+  
+}/*
 #pragma vector=USCI0TX_VECTOR 
 __interrupt void USCI0TX_ISR(void)
 {

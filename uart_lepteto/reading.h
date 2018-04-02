@@ -1,5 +1,6 @@
 #ifndef READING_H_INCLUDED
 #define READING_H_INCLUDED
+#include "init_uart.h"
 typedef enum PacketState
 {
     /*! Default condition*/
@@ -35,5 +36,6 @@ typedef enum PacketState
 } packetState;
 
 
-int reading(List *act);
+int reading(LIST *act,unsigned char myAddress);
 #endif
+

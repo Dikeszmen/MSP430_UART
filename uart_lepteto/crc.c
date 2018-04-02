@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <msp430g2553.h>
-#include stdint.h>
 #define POLYNOMIAL 0xd8
 #define BYTE 8
 #define WIDTH (BYTE * sizeof(int))
@@ -21,5 +20,7 @@ int compareCRC(int crc1, int crc2)
 {
     return crc1==crc2 ? 1:0;
 }
+
+
 
 

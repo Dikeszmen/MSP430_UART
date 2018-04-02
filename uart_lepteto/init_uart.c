@@ -1,10 +1,10 @@
 #include <stdio.h>
-
-typedef struct FIFO
-{
-  char data;
-  struct FIFO *next;
-}LIST;
+#include <msp430g2553.h>
+#include "init_uart.h"
+#define TX BIT2
+#define RX BIT1
+#define TXLED BIT0
+#define RXLED BIT6
 
 void serialInit(LIST *first, LIST *actual, LIST *newpiece)
 {
@@ -34,6 +34,8 @@ void serialInit(LIST *first, LIST *actual, LIST *newpiece)
     UCA0CTL1 &= ~UCSWRST;
     IE2 |= UCA0RXIE;    //UC0IE
     first=actual=newpiece=NULL;
-    __bis_SR_register(LPM3_bits + GIE);
+    //__bis_SR_register(LPM3_bits + GIE);
        
 }
+
+
