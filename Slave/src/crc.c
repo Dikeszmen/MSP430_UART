@@ -1,14 +1,18 @@
-#include <stdio.h>
-#include <msp430g2553.h>
-#define POLYNOMIAL 0xd8
-#define BYTE 8
-#define WIDTH (BYTE * sizeof(int))
-#define TOPBIT (1 << (WIDTH-1))
+/*!
+
+Source from Zidarics Zoltan a.k.a Zamek
+\version $Id: crc.c v 1.4 2009-05-08 06:16:09 zamek Exp $
+
+*/
+#include "../header/reading.h"
+#include "../header/crc.h"
+
+
 int addCRC(int packetCrc, unsigned char countedCrc)
 {
-    char bits;
+    char bit;
     packetCrc^= ( countedCrc<< (WIDTH-BYTE));
-    for (bits=BYTE; bits >0; --bits)
+    for (bit=BYTE; bit >0; --bit)
         if (packetCrc& TOPBIT)
             packetCrc= (packetCrc<< 1) ^ POLYNOMIAL;
         else
@@ -20,7 +24,4 @@ int compareCRC(int crc1, int crc2)
 {
     return crc1==crc2 ? 1:0;
 }
-
-
-
 
