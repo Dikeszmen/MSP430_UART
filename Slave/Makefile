@@ -17,7 +17,7 @@ RESULT=app
 
 $(RESULT): $(ALL_OBJ)
 	$(CC) $(CFLAGS) $(LFLAGS) -o $@ $^ 
-#$(MCU) $? volt a felso sorba
+#$(MCU) $? was the upper line (19)
 
 $(OBJDIR)main.o:main.c
 	$(CC) -c -o $@ $< $(CFLAGS) $(LFLAGS)
