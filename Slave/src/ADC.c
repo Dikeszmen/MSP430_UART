@@ -54,7 +54,7 @@ void ADCWorking(char* result)
     ADC10CTL0 &= ~(ENC + ADC10SC);
     temp=ADC10MEM;
 
-    degC=((temp-673)*423)/ADC10;
+    degC=((temp-673)*423)>>ADC10;
     result[0] = degC & 0xff;
     result[1] |= (degC>>BYTE) & 0xff;
 

@@ -10,9 +10,6 @@ List *first,*act;
 
 int main(void)
 {
-    extern const unsigned char slaveAddress;
-    extern const unsigned char termCommand;
-    extern const unsigned char pingCommand;
 
     char adResult[2];
     first=NULL;
@@ -22,10 +19,10 @@ int main(void)
         if(readingFromSerial()==TERMCMD)
         {
             ADCWorking(adResult);
-            sendPacket(slaveAddress,termCommand,adResult,sizeof(adResult));
+            sendPacket(SLAVE,TERMCMD,adResult,sizeof(adResult));
         }
         if(readingFromSerial()==PING)
-            sendPacket(slaveAddress,pingCommand,0,0);
+            sendPacket(SLAVE,PING,0,0);
     }
     return 0;
 }

@@ -27,7 +27,6 @@
     UCA0CTL1 &= ~UCSWRST;
     IE2 |= UCA0RXIE;    //UC0IE
     __enable_interrupt();
-    //UCA0MCTL=UCBRS0+UCA0BR1 ;
     UCA0CTL1 &= ~UCSWRST;
     ConfigureAdc();
 

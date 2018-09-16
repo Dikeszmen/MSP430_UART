@@ -4,7 +4,9 @@
 
 #define ADC10 1024
 #define BYTE 8
+
 void ConfigureAdc(void);
+
 void ADCWorking(char*);
 
 #endif

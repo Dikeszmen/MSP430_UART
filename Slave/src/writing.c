@@ -6,18 +6,18 @@
 
 static volatile char *txbuffer;
 static volatile int i=0;
-void sendPacket(unsigned char address, unsigned char cmd,char *data, int dLen)
+void sendPacket(unsigned char address, unsigned char cmd,char *data, uint8_t dLen)
 {
     if ( !data || dLen <0 )
-            return;
+        return;
 
     char *buff=(char*)malloc((dLen+13)*sizeof(char));
     if(!buff)
-            return;
+        return;
 
 
-    int dataElement=7;
-    int crc=0;
+    uint8_t dataElement=7;
+    uint16_t crc=0;
     unsigned char len1,len2,crc1,crc2;
     crc = addCRC(crc, address);
     crc = addCRC(crc, cmd);
@@ -26,17 +26,17 @@ void sendPacket(unsigned char address, unsigned char cmd,char *data, int dLen)
     len2 = (dLen >> BYTE) & 0xff;
     crc = addCRC(crc, len2);
     if(dLen>=0)
+    {
+        uint8_t j=0;
+        do
         {
-            int j=0;
-            do
-            {
-                 buff[dataElement]=*data;
-                    crc = addCRC(crc, *data);
-                    dataElement++;
-            }
-            while(j<dLen)
-            ;
+            buff[dataElement]=*data;
+            crc = addCRC(crc, *data);
+            dataElement++;
         }
+        while(j<dLen)
+            ;
+    }
 
     crc1=crc & 0xff;
     crc2=(crc>>BYTE) & 0xff;
@@ -68,5 +68,6 @@ void __attribute__((interrupt(USCIAB0TX_VECTOR))) USCI0TX_ISR(void)
     if (i == sizeof(txbuffer)-1) // TX over?
         UC0IE &= ~UCA0TXIE; // Disable USCI_A0 TX interrupt
     P1OUT &= ~TXLED;
+
 
 }

@@ -1,18 +1,11 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include "init.h"
-#include "../header/crc.h"
-#include "../header/reading.h"
 
 
 /**
 Reading from the serial port. To check the incoming packet, use the Motorola protocol
 */
-const unsigned char slaveAddress=1;
-const unsigned char termCommand=TERMCMD;
-const unsigned char pingCommand=PING;
 
-int readingFromSerial(void)
+uint8_t readingFromSerial(void)
 {
     extern List *first;
     static volatile char cmd;
@@ -21,7 +14,7 @@ int readingFromSerial(void)
     packetState State=EmptyState;
     int calculateCrc,packetCrc;
     int retval=0;
-    List /* *temp,*/*act;
+    List *act,*temp;
     act=NULL;
 
     while(first)
@@ -34,15 +27,16 @@ int readingFromSerial(void)
             {
                 State= moto55;
                 i=0;
-                first=act->next;
-                free(act);
+                act=act->next;
+                continue;
             }
-            continue;
+            break;
+
         case moto55:
             if (act->data == 0x55)
             {
                 i++;
-                if(i==5)
+                if(i==MAXU)
                     break;
 
                 continue;
@@ -50,8 +44,7 @@ int readingFromSerial(void)
             if (act->data== FF)
             {
                 State=moto1;
-                first=act->next;
-                free(act);
+                act=act->next;
                 continue;
             }
             else
@@ -62,20 +55,18 @@ int readingFromSerial(void)
             {
                 calculateCrc=0;
                 State= address;
-                first=act->next;
-                free(act);
+                act=act->next;
                 continue;
             }
             else
                 break;
         case address:
 
-            if(slaveAddress==act->data)
+            if(SLAVE==act->data)
             {
                 calculateCrc = addCRC(calculateCrc, act->data);
                 State = command;
-                first=act->next;
-                free(act);
+                act=act->next;
                 continue;
 
             }
@@ -86,43 +77,38 @@ int readingFromSerial(void)
             calculateCrc = addCRC(calculateCrc,act->data);
             cmd = act->data;
             State = DLenLow;
-            first=act->next;
-            free(act);
+            act=act->next;
             continue;
 
         case DLenLow :
             calculateCrc = addCRC(calculateCrc, act->data);
             dlen = (act->data & 0xff);
             State = DLenHigh;
-            first=act->next;
-            free(act);
+            act=act->next;
             continue;
 
         case DLenHigh :
             calculateCrc = addCRC(calculateCrc, act->data);
             dlen |= (act->data& 0xff) << BYTE ;
-            if (dlen == 0)
+            if (dlen != ZERO)
+                break;
+            else
             {
                 State=Data;
-                first=act->next;
-                free(act);
+                act=act->next;
                 continue;
             }
-            else
-                break;
 
         case Data :
             calculateCrc = addCRC(calculateCrc, act->data);
             State = CrcLow;
-            first=act->next;
-            free(act);
+            act=act->next;
             continue;
 
         case CrcLow :
             packetCrc = (act->data & 0xff);
             State = CrcHigh;
-            first=act->next;
-            free(act);
+            act=act->next;
             continue;
 
         case CrcHigh:
@@ -135,17 +121,22 @@ int readingFromSerial(void)
                 else if (cmd==PING)
                     retval=PING;
             }
-            first=act->next;
-            free(act);
+            act=act->next;
             break;
 
         default:
-            first=act->next;
-            free(act);
+            act=act->next;
             break;
         }
         break;
     }
+    while(first!=act)
+    {
+        temp=first;
+        firs=first->next;
+        free(temp);
+    }
+
     return retval;
 }
 

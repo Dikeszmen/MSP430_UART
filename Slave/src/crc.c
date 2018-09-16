@@ -8,7 +8,7 @@ Source from Zidarics Zoltan a.k.a Zamek
 #include "../header/crc.h"
 
 
-int addCRC(int packetCrc, unsigned char countedCrc)
+uint16_t addCRC(uint16_t packetCrc, unsigned char countedCrc)
 {
     char bit;
     packetCrc^= ( countedCrc<< (WIDTH-BYTE));
@@ -20,7 +20,7 @@ int addCRC(int packetCrc, unsigned char countedCrc)
     return packetCrc;
 }
 
-int compareCRC(int crc1, int crc2)
+ uint8_t compareCRC(uint16_t crc1, uint16_t crc2)
 {
     return crc1==crc2 ? 1:0;
 }
