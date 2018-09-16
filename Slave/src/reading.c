@@ -1,5 +1,5 @@
 #include "init.h"
-
+#include "../header/reading.h"
 
 /**
 Reading from the serial port. To check the incoming packet, use the Motorola protocol
@@ -133,7 +133,7 @@ uint8_t readingFromSerial(void)
     while(first!=act)
     {
         temp=first;
-        firs=first->next;
+        first=first->next;
         free(temp);
     }
 

@@ -3,8 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include "../header/crc.h"
-#include "../header/reading.h"
+#include <crc.h>
 #define FF 0xFF
 #define ONE 1
 #define ZERO 0

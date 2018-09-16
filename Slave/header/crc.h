@@ -1,6 +1,7 @@
 #ifndef CRC_H_INCLUDED
 #define CRC_H_INCLUDED
 
+#include "reading.h"
 #define POLYNOMIAL 0xd8
 #define BYTE 8
 #define WIDTH (BYTE * sizeof(int))
